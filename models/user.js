@@ -19,6 +19,10 @@ const UserSchema = new Mongoose.Schema({
     browser: String,
     isAndroid: Boolean,
     isDesktop: Boolean,
+    isWindows: Boolean,
+    isLinux: Boolean,
+    isMac: Boolean,
+    isiphone: Boolean,
     os: String,
   }]
 })

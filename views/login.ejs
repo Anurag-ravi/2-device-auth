@@ -157,6 +157,10 @@
                 browser: du.browser,
                 isAndroid: du.isAndroid,
                 isDesktop: du.isDesktop,
+                isWindows: du.isWindows,
+                isLinux: du.isLinux,
+                isMac: du.isMac,
+                isiphone: du.isiphone,
                 os:du.os
             }),
               headers: { 'Content-Type': 'application/json' }
@@ -169,11 +173,10 @@
             if (res.status === 402) {
                 location.assign('/logout')
             }
-            // location.assign('/main')
-          } catch (err) {
+            location.assign('/')
+            } catch (err) {
               console.log(err.message)
             }
-  
           })
         </script>
       </body>
