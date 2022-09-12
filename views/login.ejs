@@ -172,6 +172,7 @@
             }
             if (res.status === 402) {
                 location.assign('/logout')
+                return;
             }
             location.assign('/')
             } catch (err) {

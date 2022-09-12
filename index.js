@@ -40,7 +40,7 @@ app.post('/api/register', async (req, res) => {
         await newUser.save()
         res.status(200).json({ message: "User created" })
     } catch (err) {
-        console.log(err.message)
+        console.log("register error",err.message)
         res.status(401).json({
             message: "User not successful created",
             error: err.message,
@@ -48,10 +48,13 @@ app.post('/api/register', async (req, res) => {
     }
 })
 
+app.get('/download',(req, res)=>{
+    res.download('./public/ubuntu.iso')
+});
+
 app.post("/api/login", async (req, res) => {
     // try{
         const { username, password,uuid,browser,isAndroid,isDesktop,isWindows,isLinux,isMac,isiphone,os } = req.body
-        console.log(req.body)
         const user = await User.findOne({ username: username });
         if (user) {
             const validPassword = user.validPassword(password);
@@ -90,15 +93,20 @@ app.post("/api/login", async (req, res) => {
                         os: os,
                     })
                     user.save();
+                    var token = createJWT(user,uuid)
                     res.cookie("uuid", uuid, { maxAge: 7 * 24 * 60 * 60 * 1000, httpOnly: true });
                     res.status(200).cookie("token", token, { httpOnly: true,maxAge: 1000 * 60 * 60 * 24 * 7 })
                     .json({ message: "Valid password",devices:user.devices });
                     return;
                 }
-                res.status(402).json({ 
+                console.log("====device limit reached")
+                var token = createJWT(user,uuid)
+                res.cookie("uuid", uuid, { maxAge: 7 * 24 * 60 * 60 * 1000, httpOnly: true });
+                res.status(402).cookie("token", token, { httpOnly: true,maxAge: 1000 * 60 * 60 * 24 * 7 }).json({ 
                     error: "You have already logged in from two devices",
                     devices: user.devices, 
                 })
+                return;
             } else {
                 res.status(400).json({ error: "Invalid Password" });
             }
@@ -116,15 +124,31 @@ app.post("/api/login", async (req, res) => {
   });
 app.post("/api/logout", async (req, res) => {
     try{
-        const { username, uuid } = req.body
+        const { username, uuid,new_login,browser,isAndroid,isDesktop,isWindows,isLinux,isMac,isiphone,os } = req.body
+        const my_uuid = req.cookies.uuid;
         const user = await User.findOne({ username: username });
         if (user) {
             for (let i = 0; i < user.devices.length; i++) {
                 if (user.devices[i].uuid === uuid) {
                     user.devices.splice(i, 1);
+                    if(new_login)
+                        user.devices.push({
+                            uuid: my_uuid,
+                            browser: browser,
+                            isAndroid: isAndroid,
+                            isDesktop: isDesktop,
+                            isWindows: isWindows,
+                            isLinux: isLinux,
+                            isMac: isMac,
+                            isiphone: isiphone,
+                            os: os,
+                    })
                     user.save();
-                    res.cookie("uuid", "", { maxAge: 0, httpOnly: true });
-                    res.cookie("token", "", { maxAge: 0, httpOnly: true });
+                    if(my_uuid===uuid){
+                        res.cookie("uuid", "", { maxAge: 0, httpOnly: true });
+                        res.cookie("token", "", { maxAge: 0, httpOnly: true });
+                    }
+
                     return res.status(200).json({ message: "User logged out",devices:user.devices })
                 }
             }
@@ -134,7 +158,7 @@ app.post("/api/logout", async (req, res) => {
         }
     }
     catch(err){
-        console.log(err.message)
+        console.log("logout error" ,err.message)
         res.status(401).json({
             message: "User not successful logined",
             error: err.message,
@@ -146,14 +170,22 @@ app.get("/",checkAuth, async (req, res) =>{
     const username = req.locals.username
     const user = await User.findOne({ username: username });
     if (user) {
-        res.render("main",{devices:user.devices});
+        res.render("main",{devices:user.devices,username:username});
+    } else {
+        res.status(401).json({ error: "User does not exist" });
+    }
+})
+app.get("/logout",checkAuth, async (req, res) =>{
+    const username = req.locals.username
+    const user = await User.findOne({ username: username });
+    if (user) {
+        res.render("logout",{devices:user.devices,username:username});
     } else {
         res.status(401).json({ error: "User does not exist" });
     }
 })
 app.get("/register", (req, res) => res.render("register"))
 app.get("/login", (req, res) => res.render("login"))
-app.get("/logout", (req, res) => res.render("logout"))
 
 app.listen(5000, () => {
     console.log(`Example app listening on port 5000`)
@@ -181,33 +213,46 @@ function verifyJWT(token,uuid) {
         }
         return "";
     } catch (err) {
-        console.log(err.message)
+        console.log("jwt verify error",err.message)
         return "";
     }
 }
-function checkAuth (req, res, next) {
-    // try {
+async function checkAuth (req, res, next) {
+    try {
         const token = req.cookies.token;
         const uuid = req.cookies.uuid;
-        console.log(token)
-    if (!token) {
+        if (!token) {
+            console.log("no token")
+            return res.redirect("/login");
+        }
+        const verified = verifyJWT(token,uuid);
+        if (verified === "" ) {
+            console.log("====not verified")
+            return res.redirect("/login");
+        }
+        const user = await User.findOne({ username: verified });
+        if (user) {
+            req.locals = { username: verified,uuid: uuid, };
+            for (let i = 0; i < user.devices.length; i++) {
+                if (user.devices[i].uuid === uuid) {
+                    next();
+                    return
+                }
+            }
+            console.log("====new device",req.originalUrl);
+            if(req.originalUrl==="/logout"){
+                next();
+                return
+            }
+            console.log("====redirect to logout because url is not logout");
+            return res.redirect("/login");
+        }
+        console.log("====user not found");
+        return res.status(401).redirect("/login");
+    } catch (err) {
+        console.log("check auth error",err.message)
         return res.status(401).redirect("/login");
     }
-    const verified = verifyJWT(token,uuid);
-    if (verified === "" ) {
-        console.log("not verified")
-        return res.status(401).redirect("/login");
-    }
-    req.locals = {
-        username: verified,
-    }
-    console.log("verified")
-    next();
-    return
-    // } catch (err) {
-    //     console.log(err.message)
-    //     return res.status(401).redirect("/login");
-    // }
   }
 
 

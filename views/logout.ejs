@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Logout from 1 device</title>
+  </head>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/device-uuid.js" type="text/javascript"></script>
+  <body>
+    <section class="h-screen">
+      <div class="px-6 h-full text-gray-800">
+        <div
+          class="flex xl:justify-center lg:justify-between justify-center items-center flex-wrap h-full g-6"
+        >
+          <div
+            class="grow-0 shrink-1 md:shrink-0 basis-auto xl:w-6/12 lg:w-6/12 md:w-9/12 mb-12 md:mb-0"
+          >
+            <img
+              src="https://mdbcdn.b-cdn.net/img/Photos/new-templates/bootstrap-login-form/draw2.webp"
+              class="w-full"
+              alt="Sample image"
+            />
+          </div>
+          <div
+            class="xl:ml-20 xl:w-5/12 lg:w-5/12 md:w-8/12 mb-12 md:mb-0 rounded-lg border border-sky-500 p-4"
+          >
+            <h1 class="text-3xl font-bold mb-4">Logined Devices</h1>
+            <h3 class="text-3xl font-bold mb-4">Please logout from any one to login from this device</h3>
+            <div class="grid-cols-2">
+              <% devices.forEach(function(device) { %>
+              <div
+                class="shadow-xl rounded-lg p-5 h-1/2 flex flex-row content-center justify-between"
+              >
+                <div class="flex flex-row">
+                  <% if(device.isWindows){ %>
+                  <img src="/static/win.png" alt="" class="w-16 h-16" />
+                  <% } else if(device.isMac){ %>
+                  <img src="/static/mac.png" alt="" class="w-16 h-16" />
+                  <% } else if(device.isLinux){ %>
+                  <img src="/static/linux.png" alt="" class="w-16 h-16" />
+                  <% } else if(device.isAndroid){ %>
+                  <img src="/static/android.png" alt="" class="w-16 h-16" />
+                  <% } else if(device.isiphone){ %>
+                  <img src="/static/iphone.png" alt="" class="w-16 h-16" />
+                  <% } else { %>
+                  <img src="/static/unknown.png" alt="" class="w-16 h-16" />
+                  <% } %>
+                  <div class="flex flex-col ml-10">
+                    <div class="text-3xl font-semibold">
+                      <%= device.browser %>
+                    </div>
+                    <div class="text-2xl text-gray-500"><%= device.os %></div>
+                  </div>
+                </div>
+                <div
+                  class="rounded-full self-center w-24 h-8 p-0.5 text-white text-center text-lg cursor-pointer bg-red-500 logout"
+                  data-uuid="<%= device.uuid %>"
+                >
+                  Logout
+                </div>
+              </div>
+              <% }); %>
+            </div>
+          </div>
+        </div>
+        <div id="username" data-id="<%= username %>" hidden></div>
+      </div>
+    </section>
+    <script>
+        var elements = document.getElementsByClassName("logout");
+        const username = document.getElementById("username").getAttribute("data-id");
+        const home = document.getElementById("home");
+
+        var myFunction = async function(){
+            var uuid = this.getAttribute("data-uuid");
+            var du = new DeviceUUID().parse();
+            const res = await fetch("/api/logout", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    uuid: uuid,
+                    username: username,
+                    new_login:true,
+                    browser: du.browser,
+                    isAndroid: du.isAndroid,
+                    isDesktop: du.isDesktop,
+                    isWindows: du.isWindows,
+                    isLinux: du.isLinux,
+                    isMac: du.isMac,
+                    isiphone: du.isiphone,
+                    os:du.os
+                }),
+            });
+            if(res.status==200){
+                alert("Logout successfull");
+                location.assign('/')
+            } else {
+                alert("Something went wrong")
+            }
+        };
+        
+        for (var i = 0; i < elements.length; i++) {
+            elements[i].addEventListener('click', myFunction, false);
+        }
+    </script>
+  </body>
+</html>
